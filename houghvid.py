@@ -30,7 +30,7 @@ width, height, diag = 640, 480, 800
 # initialize camera and grab a reference to raw camera capture
 camera = PiCamera()
 camera.resolution = (width, height)
-camera.framerate = 2
+camera.framerate = 5
 camera.vflip = True
 
 rawCapture = PiRGBArray(camera, size=(640, 480))
@@ -39,9 +39,8 @@ yout = 0
 xout = 0
 theta = 100
 
-ybuff = []
-xbuff = []
-zbuff = []
+hbuff = []
+vbuff = []
 
 # capture frames from the camera
 for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
@@ -49,8 +48,7 @@ for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=
 
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     edges = cv2.Canny(gray, 100, 250)
-    ## dst, lines, rho (not used), theta, threshold, minLineLength, maxLineGap
-    lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=18, minLineLength=diag/9, maxLineGap=diag/40)
+    lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=20, minLineLength=diag/8, maxLineGap=diag/40)
     hough = np.zeros(image.shape, np.uint8)
     
     try:
@@ -66,8 +64,8 @@ for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=
             if (theta <.1 and theta > -.1):
                 ## determines if hline is utility line or not                 
                 if (xd > width/4):
-                    cv2.line(hough, (x1, y1), (x2, y2), (0, 0, 255), 2)
-                    ybuff.append(line[0])
+##                    cv2.line(hough, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                    hbuff.append(line[0])
 
 ##                    if (y1 > 2*height/3):
 ##                        GPIO.output(DU, 0)
@@ -80,9 +78,9 @@ for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=
             ## Vertical Lines
             elif (theta > 8 or theta < -8):
             # and (theta < 10 and theta > -10):
-                cv2.line(hough, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                xbuff.append((x1+x2)/2)
-                zbuff.append(min(y1,y2))
+                vbuff.append(line[0])
+##                cv2.line(hough, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
 ##                    if (xave < width/3):
 ##                        GPIO.output(LR, 0)
 ##                        print("go left")
@@ -91,33 +89,38 @@ for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=
 ##                        print("go right")
 
         try:            
-            for line in ybuff:
+            for line in hbuff:
                 x1, y1, x2, y2 = line
-                print("line", line)
+##                print("line", line)
                 xmin = min(x1, x2)
                 xmax = max(x1, x2)
-                yave = (y1 + y2)/2
+                yave = (int)((y1 + y2)/2)
                 try:
-                    for i in range(len(xbuff)):
-                        xave = xbuff[i]
-                        ymin = zbuff[i]
-                        # SOMETHING IS GOING WRONG HERE
-                        if (xave < xmax) and (xave > xmin) and (abs(yave - ymin) < 35):
-                            print("FOUND?")
+                    for i in range(len(vbuff)):
+                        xa, ya, xb, yb = vbuff[i]
+##                        xave = xbuff[i]
+##                        ymin = zbuff[i]
+                        xave = (int) ((xa + xb)/2)
+                        ymin = min(ya,yb)
+##                        cross section detected!
+                        if (xave < xmax) and (xave > xmin) and (abs(yave - ymin) < 11):
                             cv2.circle(hough, (xave, ymin), 10, (255, 0, 0), -1)
-                            print("FOUND!!!!")
+                            cv2.line(hough, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                            cv2.line(hough, (xa, ya), (xb, yb), (0, 255, 0), 2)
+                            xout = (int) (xave-width/2)
+                            yout = (int) (ymin-height/2)
+                            
                 except TypeError:
-                    print("xbuff")
+                    print("vbuff")
         except TypeError:
-            print("ybuff")
+            print("hbuff")
 
             
     except TypeError:
         print("no lines", count)
 
-    del xbuff[:]
-    del ybuff[:]
-    del zbuff[:]
+    del vbuff[:]
+    del hbuff[:]
     output = cv2.addWeighted(image, .5, hough, .5, 0)
     
 ##    cv2.imshow("images", np.hstack([image, output, hough]))
