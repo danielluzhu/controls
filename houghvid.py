@@ -30,13 +30,11 @@ width, height, diag = 640, 480, 800
 # initialize camera and grab a reference to raw camera capture
 camera = PiCamera()
 camera.resolution = (width, height)
-camera.framerate = 5
+camera.framerate = 4
 camera.vflip = True
 
 rawCapture = PiRGBArray(camera, size=(640, 480))
-count = 0
-yout = 0
-xout = 0
+count, xout, yout = 0, 0, 0
 theta = 100
 
 hbuff = []
@@ -63,30 +61,15 @@ for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=
             ## Horizontal Lines    
             if (theta <.1 and theta > -.1):
                 ## determines if hline is utility line or not                 
-                if (xd > width/4):
+                if (xd > width/6):
 ##                    cv2.line(hough, (x1, y1), (x2, y2), (0, 0, 255), 2)
-                    hbuff.append(line[0])
-
-##                    if (y1 > 2*height/3):
-##                        GPIO.output(DU, 0)
-##                        
-##                        print("go down")
-##                    elif (y1 < height/3):
-##                        GPIO.output(DU, 1)
-##                        print("go up")                        
+                    hbuff.append(line[0])                   
                         
             ## Vertical Lines
             elif (theta > 8 or theta < -8):
             # and (theta < 10 and theta > -10):
                 vbuff.append(line[0])
 ##                cv2.line(hough, (x1, y1), (x2, y2), (0, 255, 0), 2)
-
-##                    if (xave < width/3):
-##                        GPIO.output(LR, 0)
-##                        print("go left")
-##                    elif (xave > 2*width/3):
-##                        GPIO.output(LR, 1)
-##                        print("go right")
 
         try:            
             for line in hbuff:
@@ -98,8 +81,6 @@ for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=
                 try:
                     for i in range(len(vbuff)):
                         xa, ya, xb, yb = vbuff[i]
-##                        xave = xbuff[i]
-##                        ymin = zbuff[i]
                         xave = (int) ((xa + xb)/2)
                         ymin = min(ya,yb)
 ##                        cross section detected!
@@ -107,17 +88,15 @@ for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=
                             cv2.circle(hough, (xave, ymin), 10, (255, 0, 0), -1)
                             cv2.line(hough, (x1, y1), (x2, y2), (0, 0, 255), 2)
                             cv2.line(hough, (xa, ya), (xb, yb), (0, 255, 0), 2)
-                            xout = (int) (xave-width/2)
-                            yout = (int) (ymin-height/2)
-                            
+                            xout = xave
+                            yout = ymin
+                            print("X - ", xout)
                 except TypeError:
-                    print("vbuff")
+                    print("vbuff empty; no vertical lines detected")
         except TypeError:
-            print("hbuff")
-
-            
+            print("hbuff; no horizontal lines detected")  
     except TypeError:
-        print("no lines", count)
+        print("no lines; no lines detected", count)
 
     del vbuff[:]
     del hbuff[:]
